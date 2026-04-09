@@ -8,6 +8,7 @@ const phone = "010-4406-1788";
 
 const seoPageLimit = 1000;
 const blogPostLimit = 120;
+const abTestTopLimit = 100;
 
 const services = [
   { slug: "drain-blocked", keyword: "하수구 막힘" },
@@ -94,14 +95,21 @@ function buildSeoBody({ regionTerm, serviceKeyword, intentKeyword, keySeed }) {
   return [p1, p2, p3, p4, p5, p6];
 }
 
-function renderSeoPage(page, relatedLinks) {
+function buildTitleVariants(page) {
+  const { regionTerm, serviceKeyword, titleToken } = page;
+  const titleA = `${regionTerm} ${serviceKeyword} ${titleToken} | 30분 출동 24시간 상담`;
+  const titleB = `${regionTerm} ${serviceKeyword} ${titleToken} 전문 업체 | 당일 방문 가능`;
+  return { titleA, titleB };
+}
+
+function renderSeoPage(page, relatedLinks, titleOverride) {
   const { regionTerm, serviceKeyword, intentKeyword, titleToken, slug } = page;
   const titleTemplates = [
     `${regionTerm} ${serviceKeyword} ${titleToken} | 30분 출동 24시간 상담`,
     `${regionTerm} ${serviceKeyword} ${titleToken} 빠른 해결 | 비용 안내`,
     `${regionTerm} ${serviceKeyword} ${titleToken} 전문 업체 | 당일 방문 가능`
   ];
-  const title = titleTemplates[hashText(slug) % titleTemplates.length];
+  const title = titleOverride ?? titleTemplates[hashText(slug) % titleTemplates.length];
   const description = `${regionTerm} ${serviceKeyword} ${intentKeyword} 문의 대응. 원인 진단부터 재발 방지까지 현장 맞춤으로 처리합니다.`;
   const canonical = `${siteUrl}/seo/${slug}/`;
   const keySeed = `${slug}-${serviceKeyword}-${intentKeyword}`;
@@ -366,15 +374,27 @@ async function run() {
   const pages = buildSeoCandidates(activeDongs);
   const sitemapUrls = ["/", "/seo/", "/blog/"];
   const seoCards = [];
+  const abRows = ["url,title_a,title_b,applied_variant,applied_title"];
 
-  for (const page of pages) {
+  for (let i = 0; i < pages.length; i += 1) {
+    const page = pages[i];
+    const { titleA, titleB } = buildTitleVariants(page);
+    const appliedVariant = i < abTestTopLimit ? (i % 2 === 0 ? "A" : "B") : "A";
+    const appliedTitle = appliedVariant === "A" ? titleA : titleB;
     const relatedLinks = makeRelatedLinks(page, pages);
-    const html = renderSeoPage(page, relatedLinks);
+    const html = renderSeoPage(page, relatedLinks, appliedTitle);
     const targetDir = path.join(docsDir, "seo", page.slug);
     ensureDir(targetDir);
     fs.writeFileSync(path.join(targetDir, "index.html"), html, "utf8");
     seoCards.push(`<a href="/seo/${page.slug}/">${page.regionTerm} ${page.serviceKeyword} ${page.intentKeyword}</a>`);
     sitemapUrls.push(`/seo/${page.slug}/`);
+    if (i < abTestTopLimit) {
+      const pageUrl = `${siteUrl}/seo/${page.slug}/`;
+      const csvSafe = (value) => `"${String(value).replaceAll("\"", "\"\"")}"`;
+      abRows.push(
+        [pageUrl, titleA, titleB, appliedVariant, appliedTitle].map(csvSafe).join(",")
+      );
+    }
   }
 
   fs.writeFileSync(path.join(docsDir, "seo", "index.html"), renderSeoHub(seoCards), "utf8");
@@ -389,6 +409,7 @@ async function run() {
     sitemapUrls.push(`/blog/${post.slug}/`);
   }
   fs.writeFileSync(path.join(docsDir, "blog", "index.html"), renderBlogIndex(blogCards), "utf8");
+  fs.writeFileSync(path.join(docsDir, "seo-title-ab.csv"), `${abRows.join("\n")}\n`, "utf8");
 
   const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -399,7 +420,8 @@ ${sitemapUrls.map((url) => `  <url><loc>${siteUrl}${url}</loc></url>`).join("\n"
   console.log(`Total possible combinations (region x service x intent): ${allPossible}`);
   console.log(`SEO pages generated: ${pages.length}`);
   console.log(`Blog pages generated: ${blogPosts.length}`);
-  console.log("Generated directories: docs/seo, docs/blog, docs/sitemap.xml");
+  console.log(`AB title test rows generated: ${abRows.length - 1}`);
+  console.log("Generated directories: docs/seo, docs/blog, docs/sitemap.xml, docs/seo-title-ab.csv");
 }
 
 run().catch((error) => {
