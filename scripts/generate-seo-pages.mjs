@@ -6,9 +6,12 @@ const docsDir = path.join(rootDir, "docs");
 const siteUrl = "https://drainkorea.com";
 const phone = "010-4406-1788";
 
-const seoPageLimit = 1000;
-const blogPostLimit = 120;
+const seoPageInitial = 1000;
+const blogPostInitial = 120;
+const seoGrowPerRun = 30;
+const blogGrowPerRun = 6;
 const abTestTopLimit = 100;
+const growthStatePath = path.join(docsDir, ".growth-state.json");
 
 const services = [
   { slug: "drain-blocked", keyword: "하수구 막힘" },
@@ -332,9 +335,7 @@ function renderBlogIndex(cards) {
 </html>`;
 }
 
-function cleanGeneratedDirectories() {
-  fs.rmSync(path.join(docsDir, "seo"), { recursive: true, force: true });
-  fs.rmSync(path.join(docsDir, "blog"), { recursive: true, force: true });
+function prepareGeneratedDirectories() {
   ensureDir(path.join(docsDir, "seo"));
   ensureDir(path.join(docsDir, "blog"));
 }
@@ -346,7 +347,7 @@ function toSiPriority(siName) {
   return 4;
 }
 
-function buildSeoCandidates(activeDongs) {
+function buildSeoCandidates(activeDongs, seoLimit) {
   const sortedDongs = activeDongs.sort((a, b) => {
     const pA = toSiPriority(a.siName);
     const pB = toSiPriority(b.siName);
@@ -372,7 +373,7 @@ function buildSeoCandidates(activeDongs) {
       }
     }
   }
-  return candidates.slice(0, seoPageLimit);
+  return candidates.slice(0, seoLimit);
 }
 
 function makeRelatedLinks(current, pages) {
@@ -395,9 +396,9 @@ function makeRelatedLinks(current, pages) {
   }));
 }
 
-function buildBlogPostsFromPages(pages) {
+function buildBlogPostsFromPages(pages, blogLimit) {
   const posts = [];
-  for (let i = 0; i < blogPostLimit; i += 1) {
+  for (let i = 0; i < blogLimit; i += 1) {
     const seedPage = pages[(i * 7) % pages.length];
     const topic = `(${i + 1}) ${seedPage.regionTerm} ${seedPage.serviceKeyword} ${seedPage.intentKeyword}`;
     const title = `${seedPage.regionTerm} ${seedPage.serviceKeyword} 실전 가이드 ${i + 1}`;
@@ -416,15 +417,31 @@ function buildBlogPostsFromPages(pages) {
 }
 
 async function run() {
-  cleanGeneratedDirectories();
+  prepareGeneratedDirectories();
 
   const dongData = await (await fetch("https://kr-legal-dong.github.io/data/dong.json")).json();
   const activeDongs = dongData.filter(
     (item) => item.active && (item.siName === "서울특별시" || item.siName === "경기도" || item.siName === "인천광역시")
   );
 
-  const allPossible = activeDongs.length * services.length * intents.length;
-  const pages = buildSeoCandidates(activeDongs);
+  const allPossibleSeo = activeDongs.length * services.length * intents.length;
+  const existingSeoCount = fs.existsSync(path.join(docsDir, "seo"))
+    ? fs.readdirSync(path.join(docsDir, "seo"), { withFileTypes: true }).filter((d) => d.isDirectory()).length
+    : 0;
+  const existingBlogCount = fs.existsSync(path.join(docsDir, "blog"))
+    ? fs.readdirSync(path.join(docsDir, "blog"), { withFileTypes: true }).filter((d) => d.isDirectory()).length
+    : 0;
+
+  const state = fs.existsSync(growthStatePath)
+    ? JSON.parse(fs.readFileSync(growthStatePath, "utf8"))
+    : { seoTarget: seoPageInitial, blogTarget: blogPostInitial, runCount: 0 };
+
+  const prevSeoTarget = Math.max(state.seoTarget || seoPageInitial, existingSeoCount, seoPageInitial);
+  const prevBlogTarget = Math.max(state.blogTarget || blogPostInitial, existingBlogCount, blogPostInitial);
+  const nextSeoTarget = Math.min(prevSeoTarget + seoGrowPerRun, allPossibleSeo);
+  const nextBlogTarget = prevBlogTarget + blogGrowPerRun;
+
+  const pages = buildSeoCandidates(activeDongs, nextSeoTarget);
   const sitemapUrls = ["/", "/seo/", "/blog/"];
   const seoCards = [];
   const abRows = ["url,title_a,title_b,applied_variant,applied_title"];
@@ -441,7 +458,7 @@ async function run() {
     fs.writeFileSync(path.join(targetDir, "index.html"), html, "utf8");
     seoCards.push(`<a href="/seo/${page.slug}/">${page.regionTerm} ${page.serviceKeyword} ${page.intentKeyword}</a>`);
     sitemapUrls.push(`/seo/${page.slug}/`);
-    if (i < abTestTopLimit) {
+    if (i < Math.min(abTestTopLimit, pages.length)) {
       const pageUrl = `${siteUrl}/seo/${page.slug}/`;
       const csvSafe = (value) => `"${String(value).replaceAll("\"", "\"\"")}"`;
       abRows.push(
@@ -452,7 +469,7 @@ async function run() {
 
   fs.writeFileSync(path.join(docsDir, "seo", "index.html"), renderSeoHub(seoCards), "utf8");
 
-  const blogPosts = buildBlogPostsFromPages(pages);
+  const blogPosts = buildBlogPostsFromPages(pages, nextBlogTarget);
   const blogCards = [];
   for (const post of blogPosts) {
     const targetDir = path.join(docsDir, "blog", post.slug);
@@ -464,17 +481,27 @@ async function run() {
   fs.writeFileSync(path.join(docsDir, "blog", "index.html"), renderBlogIndex(blogCards), "utf8");
   fs.writeFileSync(path.join(docsDir, "seo-title-ab.csv"), `${abRows.join("\n")}\n`, "utf8");
 
+  const nextState = {
+    seoTarget: pages.length,
+    blogTarget: blogPosts.length,
+    runCount: (state.runCount || 0) + 1,
+    updatedAt: new Date().toISOString()
+  };
+  fs.writeFileSync(growthStatePath, JSON.stringify(nextState, null, 2), "utf8");
+
   const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${sitemapUrls.map((url) => `  <url><loc>${siteUrl}${url}</loc></url>`).join("\n")}
 </urlset>`;
   fs.writeFileSync(path.join(docsDir, "sitemap.xml"), sitemapXml, "utf8");
 
-  console.log(`Total possible combinations (region x service x intent): ${allPossible}`);
+  console.log(`Total possible SEO combinations (region x service x intent): ${allPossibleSeo}`);
+  console.log(`SEO target: ${pages.length} (+${Math.max(pages.length - existingSeoCount, 0)} vs existing)`);
+  console.log(`Blog target: ${blogPosts.length} (+${Math.max(blogPosts.length - existingBlogCount, 0)} vs existing)`);
   console.log(`SEO pages generated: ${pages.length}`);
   console.log(`Blog pages generated: ${blogPosts.length}`);
   console.log(`AB title test rows generated: ${abRows.length - 1}`);
-  console.log("Generated directories: docs/seo, docs/blog, docs/sitemap.xml, docs/seo-title-ab.csv");
+  console.log("Generated files: docs/seo, docs/blog, docs/sitemap.xml, docs/seo-title-ab.csv, docs/.growth-state.json");
 }
 
 run().catch((error) => {
