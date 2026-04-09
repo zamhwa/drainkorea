@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "generate:seo": "node scripts/generate-seo-pages.mjs"
+    "generate:seo": "node scripts/generate-seo-pages.mjs",
+    "generate:seo1000": "node scripts/generate-seo-pages.mjs"
   }
 }
