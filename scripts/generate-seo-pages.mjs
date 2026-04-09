@@ -18,14 +18,12 @@ const services = [
 ];
 
 const intents = [
-  { slug: "urgent", keyword: "긴급 출동" },
-  { slug: "24hour", keyword: "24시간" },
-  { slug: "cost", keyword: "비용" },
-  { slug: "company", keyword: "업체" },
-  { slug: "same-day", keyword: "당일 해결" },
-  { slug: "weekend", keyword: "주말 출동" },
-  { slug: "cause", keyword: "원인" },
-  { slug: "solution", keyword: "해결 방법" }
+  { slug: "urgent", keyword: "긴급 출동", titleToken: "긴급" },
+  { slug: "24hour", keyword: "24시간", titleToken: "24시간" },
+  { slug: "cost", keyword: "비용", titleToken: "비용" },
+  { slug: "company", keyword: "업체", titleToken: "업체" },
+  { slug: "same-day", keyword: "당일 해결", titleToken: "당일" },
+  { slug: "weekend", keyword: "주말 출동", titleToken: "주말" }
 ];
 
 function ensureDir(dirPath) {
@@ -97,8 +95,13 @@ function buildSeoBody({ regionTerm, serviceKeyword, intentKeyword, keySeed }) {
 }
 
 function renderSeoPage(page, relatedLinks) {
-  const { regionTerm, serviceKeyword, intentKeyword, slug } = page;
-  const title = `${regionTerm} ${serviceKeyword} ${intentKeyword} | 30분 출동 24시간 상담`;
+  const { regionTerm, serviceKeyword, intentKeyword, titleToken, slug } = page;
+  const titleTemplates = [
+    `${regionTerm} ${serviceKeyword} ${titleToken} | 30분 출동 24시간 상담`,
+    `${regionTerm} ${serviceKeyword} ${titleToken} 빠른 해결 | 비용 안내`,
+    `${regionTerm} ${serviceKeyword} ${titleToken} 전문 업체 | 당일 방문 가능`
+  ];
+  const title = titleTemplates[hashText(slug) % titleTemplates.length];
   const description = `${regionTerm} ${serviceKeyword} ${intentKeyword} 문의 대응. 원인 진단부터 재발 방지까지 현장 맞춤으로 처리합니다.`;
   const canonical = `${siteUrl}/seo/${slug}/`;
   const keySeed = `${slug}-${serviceKeyword}-${intentKeyword}`;
@@ -301,6 +304,7 @@ function buildSeoCandidates(activeDongs) {
           regionTerm,
           serviceKeyword: service.keyword,
           intentKeyword: intent.keyword,
+          titleToken: intent.titleToken,
           siName: dong.siName,
           guName: dong.guName
         });
