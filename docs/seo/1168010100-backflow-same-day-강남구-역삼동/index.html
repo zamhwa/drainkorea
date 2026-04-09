@@ -67,9 +67,19 @@
     (function () {
       var links = document.querySelectorAll('.js-call-cta');
       var GA_ID = 'G-LYP8WVVCQY';
-      function trackCallClick(data) {
+      function getAttribution() {
+        var params = new URLSearchParams(window.location.search);
+        var source = params.get('utm_source') || sessionStorage.getItem('utm_source') || '(direct)';
+        var medium = params.get('utm_medium') || sessionStorage.getItem('utm_medium') || '(none)';
+        var campaign = params.get('utm_campaign') || sessionStorage.getItem('utm_campaign') || '';
+        if (params.get('utm_source')) sessionStorage.setItem('utm_source', source);
+        if (params.get('utm_medium')) sessionStorage.setItem('utm_medium', medium);
+        if (params.get('utm_campaign')) sessionStorage.setItem('utm_campaign', campaign);
+        return { source: source, medium: medium, campaign: campaign };
+      }
+      function trackEvent(name, data) {
         if (typeof window.gtag === 'function') {
-          window.gtag('event', 'call_click', data);
+          window.gtag('event', name, data);
         }
       }
       if (GA_ID && !window.__gaBooted) {
@@ -85,13 +95,23 @@
         gtag('config', GA_ID);
       }
       links.forEach(function (link) {
+        var clicked = false;
         link.addEventListener('click', function () {
-          trackCallClick({
+          if (clicked) return;
+          clicked = true;
+          var attr = getAttribution();
+          var payload = {
             region: link.getAttribute('data-region') || '',
             service: link.getAttribute('data-service') || '',
             intent: link.getAttribute('data-intent') || '',
-            page_path: location.pathname
-          });
+            phone_number: '010-4406-1788',
+            page_path: location.pathname,
+            source: attr.source,
+            medium: attr.medium,
+            campaign: attr.campaign
+          };
+          trackEvent('call_click', payload);
+          trackEvent('generate_lead', payload);
         });
       });
     })();
