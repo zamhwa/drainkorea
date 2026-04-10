@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://drainkorea.com/</loc></url>
+  <url><loc>https://drainkorea.com/</loc><lastmod>2026-04-10</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://drainkorea.com/guide/hasugumaghim/</loc><lastmod>2026-04-10</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://drainkorea.com/guide/byeongimaghim/</loc><lastmod>2026-04-10</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://drainkorea.com/guide/singkeudaemaghim/</loc><lastmod>2026-04-10</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://drainkorea.com/guide/hasugunaemsae/</loc><lastmod>2026-04-10</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://drainkorea.com/guide/baesugumaghim/</loc><lastmod>2026-04-10</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://drainkorea.com/resources/backlink-posts/</loc><lastmod>2026-04-10</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://drainkorea.com/seo/</loc></url>
   <url><loc>https://drainkorea.com/blog/</loc></url>
   <url><loc>https://drainkorea.com/seo/1168010300-drain-blocked-urgent-강남구-개포동/</loc></url>
