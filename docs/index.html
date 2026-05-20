@@ -268,6 +268,8 @@ button{cursor:pointer;font-family:inherit}
 .form-success .check{font-size:48px;margin-bottom:12px}
 .form-success h3{font-size:20px;font-weight:800;color:#16a34a;margin-bottom:6px}
 .form-success p{font-size:14px;color:#64748b}
+.success-call{display:block;margin:18px auto 0;max-width:360px;background:#dc2626;color:#fff;font-size:18px;font-weight:800;padding:16px;border-radius:12px;text-decoration:none;box-shadow:0 6px 18px rgba(220,38,38,.35);animation:scallpulse 1.5s infinite}
+@keyframes scallpulse{0%{transform:scale(1)}50%{transform:scale(1.03)}100%{transform:scale(1)}}
 
 /* ===== FAQ ===== */
 .faq{padding:52px 20px;background:#f8fafc}
@@ -618,7 +620,8 @@ button{cursor:pointer;font-family:inherit}
     <div class="form-success" id="form-success">
       <div class="check">&#x2705;</div>
       <h3>접수 완료!</h3>
-      <p>5분 이내로 담당자가<br>전화드리겠습니다.</p>
+      <p>5분 이내로 담당자가 전화드리겠습니다.<br><strong>더 빨리 해결하고 싶으시면 지금 바로 전화하세요.</strong></p>
+      <a href="tel:01044061788" class="success-call">&#x1F4DE; 지금 바로 통화 연결 (28분 내 도착)</a>
     </div>
   </div>
 </section>
@@ -855,7 +858,7 @@ document.getElementById('contactForm').addEventListener('submit', function(e) {
 
   const message = '🚨 긴급접수!\n이름: ' + name + '\n연락처: ' + phone + '\n증상: ' + symptom + '\n위치: ' + location + '\n상세: ' + (detail || '없음') + '\n시간: ' + time;
 
-  // ntfy.sh 무료 푸시 알림 (앱 설치 후 "zeus-plumbing" 구독)
+  // [채널 1] ntfy.sh 무료 푸시 알림 (사장님: ntfy 앱에서 "zeus-facility-emergency" 토픽 구독 필수!)
   fetch('https://ntfy.sh/zeus-facility-emergency', {
     method: 'POST',
     headers: {
@@ -866,7 +869,8 @@ document.getElementById('contactForm').addEventListener('submit', function(e) {
     body: message
   }).catch(() => {});
 
-  // 이메일 백업 (EmailJS 등 연동 시 여기 추가)
+  // [전환 추적] GA4 리드 이벤트
+  if (window.gtag) { gtag('event', 'generate_lead', { symptom: symptom, location: location }); }
 
   // 성공 화면
   document.getElementById('contactForm').style.display = 'none';
