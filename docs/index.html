@@ -741,81 +741,67 @@ button{cursor:pointer;font-family:inherit}
 </div>
 
 <script>
-// ===== IP 기반 위치 감지 (팝업 없음) =====
 (function() {
   const locBadge = document.getElementById('loc-badge');
-  const locHero = document.getElementById('loc-hero');
+  const locHero  = document.getElementById('loc-hero');
   const liveText = document.getElementById('live-text');
   const fLocation = document.getElementById('f-location');
 
   function setLocation(area) {
     const seed = new Date().getDate() + new Date().getHours();
-    const techCount = 18 + (seed % 15); // 18~32명
-
+    const techCount = 18 + (seed % 15);
     locBadge.textContent = area + ' 근처 기사님 ' + techCount + '명 대기 중';
-    locHero.textContent = area;
+    locHero.textContent  = area;
     if (fLocation) fLocation.value = area;
-
-    // 실시간 배너
     const todayCount = 12 + (seed % 20);
     liveText.textContent = '오늘 ' + area + ' 근처 출동 ' + todayCount + '건 완료 | 현재 기사님 ' + techCount + '명 대기 중!';
-
-    // 히어로 효과
     locHero.style.transition = 'all 0.5s';
     locHero.style.textShadow = '0 0 20px rgba(251,191,36,0.5)';
   }
-
   function fallback() {
     const seed = new Date().getDate();
-    const techCount = 20 + (seed % 12);
-    locBadge.textContent = '내 근처 기사님 ' + techCount + '명 대기 중';
-    locHero.textContent = '우리 동네';
+    locBadge.textContent = '내 근처 기사님 ' + (20 + (seed % 12)) + '명 대기 중';
+    locHero.textContent  = '우리 동네';
     liveText.textContent = '현재 전국 기사님 ' + (1500 + (seed % 80)) + '명 대기 중!';
   }
 
-  // 영문 → 한글 도시명 매핑
-  const cityMap = {
-    'Seoul':'서울','Busan':'부산','Incheon':'인천','Daegu':'대구','Daejeon':'대전',
-    'Gwangju':'광주','Ulsan':'울산','Sejong':'세종','Suwon':'수원','Suwon-si':'수원',
-    'Yongin':'용인','Yongin-si':'용인','Seongnam':'성남','Seongnam-si':'성남',
-    'Goyang':'고양','Goyang-si':'고양','Bucheon':'부천','Bucheon-si':'부천',
-    'Anyang':'안양','Anyang-si':'안양','Ansan':'안산','Ansan-si':'안산',
-    'Hwaseong':'화성','Hwaseong-si':'화성','Pyeongtaek':'평택','Pyeongtaek-si':'평택',
-    'Siheung':'시흥','Siheung-si':'시흥','Paju':'파주','Paju-si':'파주',
-    'Gimpo':'김포','Gimpo-si':'김포','Gwangmyeong':'광명','Gwangmyeong-si':'광명',
-    'Hanam':'하남','Hanam-si':'하남','Guri':'구리','Guri-si':'구리',
-    'Namyangju':'남양주','Namyangju-si':'남양주','Yangju':'양주','Yangju-si':'양주',
-    'Uijeongbu':'의정부','Uijeongbu-si':'의정부','Icheon':'이천','Icheon-si':'이천',
-    'Gwacheon':'과천','Gwacheon-si':'과천','Gunpo':'군포','Gunpo-si':'군포',
-    'Osan':'오산','Osan-si':'오산','Yeosu':'여수','Changwon':'창원',
-    'Cheongju':'청주','Jeonju':'전주','Cheonan':'천안','Cheonan-si':'천안',
-    'Jeju':'제주','Jeju-si':'제주','Wonju':'원주','Chuncheon':'춘천',
-    'Gimhae':'김해','Gimhae-si':'김해','Jinju':'진주','Pohang':'포항',
-    'Gyeonggi-do':'경기','Gyeonggi':'경기','Gangwon-do':'강원',
-    'Chungcheongbuk-do':'충북','Chungcheongnam-do':'충남',
-    'Jeollabuk-do':'전북','Jeollanam-do':'전남',
-    'Gyeongsangbuk-do':'경북','Gyeongsangnam-do':'경남','Jeju-do':'제주'
-  };
+  // 8광역시/특별시 (region 이 이걸로 잡히면 구 무시하고 광역시명)
+  const METRO = {seoul:'서울',busan:'부산',daegu:'대구',incheon:'인천',gwangju:'광주',daejeon:'대전',ulsan:'울산',sejong:'세종'};
+  // 9도 약칭
+  const PROV = {gyeonggi:'경기',gangwon:'강원',chungcheongbuk:'충북',chungbuk:'충북',chungcheongnam:'충남',chungnam:'충남',
+    jeollabuk:'전북',jeonbuk:'전북',jeollanam:'전남',jeonnam:'전남',gyeongsangbuk:'경북',gyeongbuk:'경북',
+    gyeongsangnam:'경남',gyeongnam:'경남',jeju:'제주'};
+  // 전국 주요 시
+  const CITY = {suwon:'수원',seongnam:'성남',yongin:'용인',anyang:'안양',ansan:'안산',bucheon:'부천',hwaseong:'화성',
+    pyeongtaek:'평택',uijeongbu:'의정부',siheung:'시흥',paju:'파주',gimpo:'김포',gwangmyeong:'광명',gunpo:'군포',
+    hanam:'하남',osan:'오산',yangju:'양주',icheon:'이천',guri:'구리',anseong:'안성',pocheon:'포천',uiwang:'의왕',
+    yangpyeong:'양평',yeoju:'여주',dongducheon:'동두천',gwacheon:'과천',gapyeong:'가평',yeoncheon:'연천',goyang:'고양',namyangju:'남양주',
+    chuncheon:'춘천',wonju:'원주',gangneung:'강릉',sokcho:'속초',donghae:'동해',samcheok:'삼척',taebaek:'태백',hongcheon:'홍천',
+    cheongju:'청주',chungju:'충주',jecheon:'제천',cheonan:'천안',asan:'아산',seosan:'서산',dangjin:'당진',nonsan:'논산',gongju:'공주',boryeong:'보령',
+    jeonju:'전주',iksan:'익산',gunsan:'군산',jeongeup:'정읍',yeosu:'여수',suncheon:'순천',mokpo:'목포',gwangyang:'광양',naju:'나주',
+    pohang:'포항',gyeongju:'경주',gumi:'구미',andong:'안동',gyeongsan:'경산',gimcheon:'김천',yeongju:'영주',sangju:'상주',
+    changwon:'창원',gimhae:'김해',jinju:'진주',yangsan:'양산',geoje:'거제',tongyeong:'통영',sacheon:'사천',miryang:'밀양',
+    jeju:'제주',seogwipo:'서귀포'};
 
-  function toKorean(name) {
-    if (!name) return '';
-    // 괄호 제거: "Yongin-si (Cheoin-gu)" → "Yongin-si"
-    name = name.replace(/\s*\(.*\)/, '').trim();
-    // 이미 한글이면 그대로
-    if (/[가-힣]/.test(name)) return name;
-    return cityMap[name] || cityMap[name.replace(/-si$/,'')] || name;
+  function clean(s){ return (s||'').toString().toLowerCase()
+    .replace(/\s*\(.*\)/,'').replace(/-?(si|gun|gu|do|gwangyeoksi|teukbyeolsi|teukbyeoljachido)$/i,'').replace(/[\s\-]/g,''); }
+
+  function normalize(city, region) {
+    var c=(city||'').replace(/\s*\(.*\)/,'').trim(), r=(region||'').replace(/\s*\(.*\)/,'').trim();
+    var rk=clean(r), ck=clean(c);
+    for (var m in METRO){ if (rk.indexOf(m)===0 || ck===m) return METRO[m]; }       // 광역시(구 무시)
+    if (/[가-힣]/.test(c) && !/구$/.test(c)) return c.replace(/시$|군$/,'');        // 한글 시/구 그대로
+    if (CITY[ck]) return CITY[ck];                                                  // 전국 시 매핑
+    for (var p in PROV){ if (rk.indexOf(p)===0) return PROV[p]; }                   // 도(道)
+    if (/[가-힣]/.test(r)) return r.replace(/특별자치도$|광역시$|특별시$|도$/,'');   // 한글 도/광역시
+    return '';
   }
 
-  // IP 위치 감지 - geojs.io (HTTPS + CORS 허용)
   fetch('https://get.geojs.io/v1/ip/geo.json')
     .then(function(r){ return r.json(); })
-    .then(function(d){
-      var area = toKorean(d.city||'') || toKorean(d.region||'');
-      if (area) setLocation(area); else fallback();
-    })
+    .then(function(d){ var a = normalize(d.city||'', d.region||''); if (a) setLocation(a); else fallback(); })
     .catch(function(){ fallback(); });
 })();
-
 </script>
 
 </body>
