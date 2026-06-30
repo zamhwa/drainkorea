@@ -797,15 +797,61 @@ button{cursor:pointer;font-family:inherit}
     return '';
   }
 
+  // BigDataCloud 역지오코딩 → 한글 동네명
+  function fmtKo(d){
+    var sub=(d.principalSubdivision||'').trim();
+    if(/(특별시|광역시|특별자치시)$/.test(sub)) return sub.replace(/(특별시|광역시|특별자치시)$/,'');
+    var city=(d.city||'').trim();
+    var c=city.replace(/(시|군)$/,'');
+    if(c && !/구$/.test(c)) return c;
+    var li=d.localityInfo && d.localityInfo.administrative;
+    if(li){ for(var i=0;i<li.length;i++){ var nm=(li[i].name||''); if(/(시|군)$/.test(nm) && !/(특별시|광역시)/.test(nm)) return nm.replace(/(시|군)$/,''); } }
+    return sub.replace(/(특별자치도|도)$/,'');
+  }
+
+  var locked=false;
+  function gpsApply(n){ if(n){ locked=true; setLocation(n); } }
+  function ipApply(a){ if(locked) return; if(a) setLocation(a); else fallback(); }
+
+  // 위치 허용 안내(프라이밍) 토스트
+  function showPrompt(){
+    try{
+      var t=document.createElement('div');
+      t.id='__geoPrompt';
+      t.innerHTML='📍 <b>가장 가까운 기사 배정</b>을 위해 위치 허용을 눌러주세요';
+      t.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99999;background:rgba(20,20,20,.92);color:#fff;padding:11px 18px;border-radius:24px;font-size:13.5px;line-height:1.3;box-shadow:0 6px 20px rgba(0,0,0,.28);max-width:92%;text-align:center;font-family:inherit';
+      document.body.appendChild(t); return t;
+    }catch(e){ return null; }
+  }
+  function hidePrompt(t){ try{ if(t&&t.parentNode) t.parentNode.removeChild(t); }catch(e){} }
+
+  // (1) IP 즉시 표시: Netlify 서버 geo → geojs 백업
   fetch('/__geo', { cache: 'no-store' })
     .then(function(r){ if (!r.ok) throw 0; return r.json(); })
-    .then(function(d){ var a = normalize((d.city)||'', (d.region)||''); if (d && (d.city || d.region) && a) setLocation(a); else throw 0; })
+    .then(function(d){ if (d && (d.city || d.region)) ipApply(normalize(d.city||'', d.region||'')); else throw 0; })
     .catch(function(){
       fetch('https://get.geojs.io/v1/ip/geo.json')
         .then(function(r){ return r.json(); })
-        .then(function(d){ var a = normalize(d.city||'', d.region||''); if (a) setLocation(a); else fallback(); })
-        .catch(function(){ fallback(); });
+        .then(function(d){ ipApply(normalize(d.city||'', d.region||'')); })
+        .catch(function(){ if(!locked) fallback(); });
     });
+
+  // (2) GPS 정밀 위치(허용 시 IP값을 덮어씀)
+  if (navigator.geolocation) {
+    var pt=showPrompt();
+    setTimeout(function(){ hidePrompt(pt); }, 9000);
+    navigator.geolocation.getCurrentPosition(
+      function(pos){
+        hidePrompt(pt);
+        fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='+pos.coords.latitude+'&longitude='+pos.coords.longitude+'&localityLanguage=ko')
+          .then(function(r){ return r.json(); })
+          .then(function(d){ gpsApply(fmtKo(d)); })
+          .catch(function(){});
+      },
+      function(){ hidePrompt(pt); },
+      { enableHighAccuracy:false, timeout:8000, maximumAge:600000 }
+    );
+  }
 })();
 </script>
 
