@@ -789,18 +789,23 @@ button{cursor:pointer;font-family:inherit}
   function normalize(city, region) {
     var c=(city||'').replace(/\s*\(.*\)/,'').trim(), r=(region||'').replace(/\s*\(.*\)/,'').trim();
     var rk=clean(r), ck=clean(c);
-    for (var m in METRO){ if (rk.indexOf(m)===0 || ck===m) return METRO[m]; }       // 광역시(구 무시)
-    if (/[가-힣]/.test(c) && !/구$/.test(c)) return c.replace(/시$|군$/,'');        // 한글 시/구 그대로
-    if (CITY[ck]) return CITY[ck];                                                  // 전국 시 매핑
-    for (var p in PROV){ if (rk.indexOf(p)===0) return PROV[p]; }                   // 도(道)
-    if (/[가-힣]/.test(r)) return r.replace(/특별자치도$|광역시$|특별시$|도$/,'');   // 한글 도/광역시
+    for (var m in METRO){ if (rk.indexOf(m)===0 || ck===m) return METRO[m]; }
+    if (/[가-힣]/.test(c) && !/구$/.test(c)) return c.replace(/시$|군$/,'');
+    if (CITY[ck]) return CITY[ck];
+    for (var p in PROV){ if (rk.indexOf(p)===0) return PROV[p]; }
+    if (/[가-힣]/.test(r)) return r.replace(/특별자치도$|광역시$|ኹ별시$|도$/,'');
     return '';
   }
 
-  fetch('https://get.geojs.io/v1/ip/geo.json')
-    .then(function(r){ return r.json(); })
-    .then(function(d){ var a = normalize(d.city||'', d.region||''); if (a) setLocation(a); else fallback(); })
-    .catch(function(){ fallback(); });
+  fetch('/__geo', { cache: 'no-store' })
+    .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+    .then(function(d){ var a = normalize((d.city)||'', (d.region)||''); if (d && (d.city || d.region) && a) setLocation(a); else throw 0; })
+    .catch(function(){
+      fetch('https://get.geojs.io/v1/ip/geo.json')
+        .then(function(r){ return r.json(); })
+        .then(function(d){ var a = normalize(d.city||'', d.region||''); if (a) setLocation(a); else fallback(); })
+        .catch(function(){ fallback(); });
+    });
 })();
 </script>
 
