@@ -809,10 +809,6 @@ button{cursor:pointer;font-family:inherit}
     return sub.replace(/(특별자치도|도)$/,'');
   }
 
-  var locked=false;
-  function gpsApply(n){ if(n){ locked=true; setLocation(n); } }
-  function ipApply(a){ if(locked) return; if(a) setLocation(a); else fallback(); }
-
   // 위치 허용 안내(프라이밍) 토스트
   function showPrompt(){
     try{
@@ -825,32 +821,39 @@ button{cursor:pointer;font-family:inherit}
   }
   function hidePrompt(t){ try{ if(t&&t.parentNode) t.parentNode.removeChild(t); }catch(e){} }
 
-  // (1) IP 즉시 표시: Netlify 서버 geo → geojs 백업
-  fetch('/__geo', { cache: 'no-store' })
-    .then(function(r){ if (!r.ok) throw 0; return r.json(); })
-    .then(function(d){ if (d && (d.city || d.region)) ipApply(normalize(d.city||'', d.region||'')); else throw 0; })
+  // 잘못된 IP 도시가 먼저 깜빡이지 않도록: GPS 결과가 날 때까지 IP 표시 보류, GPS 실패/거부/미지원 시에만 IP 폴백
+  var locked=false, gpsPending=true, ipResult=null, ipReady=false;
+  function flushIp(){ if(locked) return; if(ipResult) setLocation(ipResult); else fallback(); }
+  function setIp(a){ ipResult=a; ipReady=true; if(!gpsPending) flushIp(); }
+  function gpsDone(n){ gpsPending=false; if(n){ locked=true; setLocation(n); } else { flushIp(); } }
+
+  // IP(Netlify 서버 geo → geojs 백업) — 결과는 보관만
+  fetch('/__geo', { cache:'no-store' })
+    .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+    .then(function(d){ if(d && (d.city||d.region)) setIp(normalize(d.city||'', d.region||'')); else throw 0; })
     .catch(function(){
       fetch('https://get.geojs.io/v1/ip/geo.json')
         .then(function(r){ return r.json(); })
-        .then(function(d){ ipApply(normalize(d.city||'', d.region||'')); })
-        .catch(function(){ if(!locked) fallback(); });
+        .then(function(d){ setIp(normalize(d.city||'', d.region||'')); })
+        .catch(function(){ setIp(''); });
     });
 
-  // (2) GPS 정밀 위치(허용 시 IP값을 덮어씀)
+  // GPS 정밀(성공=정확 동네, 거부/실패/시간초과=IP 폴백). GPS를 먼저 기다려 오표기 깜빡임 방지.
   if (navigator.geolocation) {
     var pt=showPrompt();
-    setTimeout(function(){ hidePrompt(pt); }, 9000);
     navigator.geolocation.getCurrentPosition(
       function(pos){
         hidePrompt(pt);
         fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='+pos.coords.latitude+'&longitude='+pos.coords.longitude+'&localityLanguage=ko')
           .then(function(r){ return r.json(); })
-          .then(function(d){ gpsApply(fmtKo(d)); })
-          .catch(function(){});
+          .then(function(d){ gpsDone(fmtKo(d)); })
+          .catch(function(){ gpsDone(''); });
       },
-      function(){ hidePrompt(pt); },
-      { enableHighAccuracy:false, timeout:8000, maximumAge:600000 }
+      function(){ hidePrompt(pt); gpsDone(''); },
+      { enableHighAccuracy:false, timeout:6000, maximumAge:600000 }
     );
+  } else {
+    gpsPending=false; if(ipReady) flushIp();
   }
 })();
 </script>
